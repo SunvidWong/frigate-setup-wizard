@@ -77,9 +77,9 @@ Explanation:
 - 8080:80 – Web UI port
 - 3000:3000 – Backend API port
 - /var/run/docker.sock – Required to manage the Frigate container
-•./config – Configuration file persistence
-	•	./media – Video storage
-	•	privileged: true – Required for access to hardware devices
+- ./config – Configuration file persistence
+- ./media – Video storage
+- privileged: true – Required for access to hardware devices
 
 ## 📖 Usage
 
