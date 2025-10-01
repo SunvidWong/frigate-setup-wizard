@@ -68,6 +68,7 @@ networks: {}
 Save as docker-compose.yml and then run:
 ```bash
 docker-compose up -d
+```
 
 Access:
 http://localhost:8080
@@ -79,7 +80,6 @@ Explanation:
 	•	./config – Configuration file persistence
 	•	./media – Video storage
 	•	privileged: true – Required for access to hardware devices
-```
 
 ## 📖 Usage
 
