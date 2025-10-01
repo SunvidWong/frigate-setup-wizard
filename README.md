@@ -1,48 +1,34 @@
-# 🎥 Frigate Setup Wizard
+完整的双语 README 内容：
+markdown# 🎥 Frigate Setup Wizard
+
+[English](#english) | [中文](#中文)
+
+---
+
+## English
 
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue)](https://github.com/SunvidWong/frigate-setup-wizard/pkgs/container/frigate-setup-wizard)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![GitHub Stars](https://img.shields.io/github/stars/SunvidWong/frigate-setup-wizard)](https://github.com/SunvidWong/frigate-setup-wizard/stargazers)
 
-一个现代化的 Web 界面，用于快速安装和配置 Frigate NVR 系统。
+Web-based setup wizard for Frigate NVR with hardware acceleration support.
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+### Features
 
-## ✨ Features
+- 🔍 Auto hardware detection (Google Coral, NVIDIA GPU, Intel, AMD, Hailo, Rockchip)
+- 🎨 Modern React UI with dark/light themes
+- 🌐 Multi-language support (English/Chinese)
+- 📹 Batch camera import via CSV
+- 🚀 One-click Frigate installation
+- ⚙️ Configuration management with templates and history
+- 🔧 RTSP connection testing
+- 📊 Real-time system logs
 
-- 🔍 **Auto Hardware Detection** - Automatically scan AI accelerators (Google Coral, NVIDIA GPU, Intel, AMD, Hailo)
-- 🎨 **Modern UI** - Responsive React interface with dark/light themes
-- 🌐 **Multi-language** - English/Chinese support
-- 📹 **Batch Import** - CSV batch camera import
-- 🚀 **One-Click Install** - Auto-generate config and deploy Frigate
-- ⚙️ **Config Management** - Preview, history, and templates
-- 🔧 **Connection Test** - RTSP stream testing
-- 📊 **Real-time Logs** - System operation logs
+### Quick Start
 
-## 🚀 Quick Start
+#### Docker Compose (Recommended)
 
-### Docker Run (Recommended)
-
-```bash
-docker run -d \
-  --name frigate-wizard \
-  -p 8080:80 \
-  -v /var/run/docker.sock:/var/run/docker.sock \
-  -v $(pwd)/config:/config \
-  -v $(pwd)/media:/media \
-  --privileged \
-  ghcr.io/sunvidwong/frigate-setup-wizard:latest
-```
-
-Visit: http://localhost:8080
-
-### Docker Compose
-
-```bash
-wget https://raw.githubusercontent.com/SunvidWong/frigate-setup-wizard/main/docker-compose.yml
-docker-compose up -d
-```
-### Docker Compose 方法2
+Create `docker-compose.yml`:
+```yaml
 services:
   frigate-wizard:
     image: ghcr.io/sunvidwong/frigate-setup-wizard:latest
@@ -58,100 +44,131 @@ services:
     privileged: true
     environment:
       - NODE_ENV=production
-      - API_PORT=3000
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
 networks: {}
+Run:
+bashdocker-compose up -d
+Visit: http://localhost:8080
+Management Commands:
+bash# Stop service
+docker-compose down
 
-保存为 docker-compose.yml，然后运行：
+# View logs
+docker-compose logs -f
+
+# Restart
+docker-compose restart
+
+# Update image
+docker-compose pull
+docker-compose up -d
+Docker Run
+bashdocker run -d \
+  --name frigate-wizard \
+  -p 8080:80 \
+  -p 3000:3000 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $(pwd)/config:/config \
+  -v $(pwd)/media:/media \
+  --privileged \
+  ghcr.io/sunvidwong/frigate-setup-wizard:latest
+Configuration
+PortDescription80Web UI3000Backend API5000Frigate Web UI (after installation)8554Frigate RTSP
+VolumeDescriptionRequired/var/run/docker.sockDocker socket✅/configConfig storage✅/mediaRecording storage✅
+Usage
+
+Open web interface at http://localhost:8080
+Scan for available AI accelerators
+Add detectors and configure cameras
+Start Frigate container
+Access Frigate at http://localhost:5000
+
+Development
+bashgit clone https://github.com/SunvidWong/frigate-setup-wizard.git
+cd frigate-setup-wizard
+npm install
+npm run dev
+License
+MIT License - see LICENSE
+
+中文
+Show Image
+Show Image
+基于 Web 的 Frigate NVR 安装向导，支持硬件加速。
+特性
+
+🔍 自动硬件检测（Google Coral、NVIDIA GPU、Intel、AMD、Hailo、Rockchip）
+🎨 现代化 React 界面，支持深色/浅色主题
+🌐 多语言支持（中文/英文）
+📹 通过 CSV 批量导入摄像头
+🚀 一键安装 Frigate
+⚙️ 配置管理，包含模板和历史记录
+🔧 RTSP 连接测试
+📊 实时系统日志
+
+快速开始
+Docker Compose（推荐）
+创建 docker-compose.yml 文件：
+yamlservices:
+  frigate-wizard:
+    image: ghcr.io/sunvidwong/frigate-setup-wizard:latest
+    container_name: frigate-wizard
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+      - "3000:3000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config:/config
+      - ./media:/media
+    privileged: true
+    environment:
+      - NODE_ENV=production
+
+networks: {}
+启动服务：
 bashdocker-compose up -d
 访问：http://localhost:8080
-说明：
+管理命令：
+bash# 停止服务
+docker-compose down
 
-8080:80 - Web UI 端口
-3000:3000 - 后端 API 端口
-/var/run/docker.sock - 用于管理 Frigate 容器（必需）
-./config - 配置文件持久化
-./media - 录像存储
-privileged: true - 访问硬件设备所需
+# 查看日志
+docker-compose logs -f
 
+# 重启服务
+docker-compose restart
 
-## 📖 Usage
+# 更新镜像
+docker-compose pull
+docker-compose up -d
+Docker 直接运行
+bashdocker run -d \
+  --name frigate-wizard \
+  -p 8080:80 \
+  -p 3000:3000 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $(pwd)/config:/config \
+  -v $(pwd)/media:/media \
+  --privileged \
+  ghcr.io/sunvidwong/frigate-setup-wizard:latest
+配置说明
+端口说明80Web 界面3000后端 API5000Frigate Web 界面（安装后）8554Frigate RTSP
+挂载目录说明必需/var/run/docker.sockDocker 套接字✅/config配置存储✅/media录像存储✅
+使用说明
 
-1. **Hardware Detection** - Auto-scan available AI accelerators
-2. **Add Detectors** - Select and configure hardware acceleration
-3. **Configure Cameras** - Add RTSP camera sources
-4. **Save & Deploy** - One-click Frigate deployment
-5. **Access Frigate** - Visit Frigate dashboard at http://localhost:5000
+在浏览器打开 http://localhost:8080
+扫描可用的 AI 加速器
+添加检测器并配置摄像头
+启动 Frigate 容器
+访问 Frigate：http://localhost:5000
 
-## 🛠️ Development
-
-```bash
-# Clone repository
-git clone https://github.com/SunvidWong/frigate-setup-wizard.git
+开发
+bashgit clone https://github.com/SunvidWong/frigate-setup-wizard.git
 cd frigate-setup-wizard
-
-# Install dependencies
 npm install
-
-# Dev server
 npm run dev
+许可证
+MIT 许可证 - 查看 LICENSE
 
-# Build
-npm run build
-
-# Docker build
-docker build -t frigate-wizard .
-```
-
-## 📝 Configuration
-
-### Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `API_PORT` | Backend API port | `3000` |
-| `NODE_ENV` | Environment | `production` |
-
-### Volumes
-
-| Path | Description | Required |
-|------|-------------|----------|
-| `/var/run/docker.sock` | Docker socket | ✅ |
-| `/config` | Config storage | ✅ |
-| `/media` | Recording storage | ✅ |
-
-## 🤝 Contributing
-
-Contributions welcome! Please:
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit changes (`git commit -m 'Add AmazingFeature'`)
-4. Push to branch (`git push origin feature/AmazingFeature`)
-5. Open Pull Request
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file
-
-## 🙏 Credits
-
-- [Frigate](https://frigate.video/) - Excellent open-source NVR
-- [React](https://react.dev/) - Frontend framework
-- [Tailwind CSS](https://tailwindcss.com/) - CSS framework
-- [Lucide](https://lucide.dev/) - Icon library
-
-## 💬 Support
-
-- Submit [Issue](https://github.com/SunvidWong/frigate-setup-wizard/issues)
-- Start [Discussion](https://github.com/SunvidWong/frigate-setup-wizard/discussions)
-
----
-
-Made with ❤️ by [SunvidWong](https://github.com/SunvidWong)
+Made with ❤️ by SunvidWong
