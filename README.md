@@ -65,18 +65,21 @@ services:
 networks: {}
 ```
 
-保存为 docker-compose.yml，然后运行：
-bashdocker-compose up -d
-访问：http://localhost:8080
-说明：
+Save as docker-compose.yml and then run:
+```bash
+docker-compose up -d
 
-8080:80 - Web UI 端口
-3000:3000 - 后端 API 端口
-/var/run/docker.sock - 用于管理 Frigate 容器（必需）
-./config - 配置文件持久化
-./media - 录像存储
-privileged: true - 访问硬件设备所需
+Access:
+http://localhost:8080
 
+Explanation:
+	•	8080:80 – Web UI port
+	•	3000:3000 – Backend API port
+	•	/var/run/docker.sock – Required to manage the Frigate container
+	•	./config – Configuration file persistence
+	•	./media – Video storage
+	•	privileged: true – Required for access to hardware devices
+```
 
 ## 📖 Usage
 
