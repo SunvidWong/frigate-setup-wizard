@@ -42,6 +42,44 @@ Visit: http://localhost:8080
 wget https://raw.githubusercontent.com/SunvidWong/frigate-setup-wizard/main/docker-compose.yml
 docker-compose up -d
 ```
+### Docker Compose 方法2
+services:
+  frigate-wizard:
+    image: ghcr.io/sunvidwong/frigate-setup-wizard:latest
+    container_name: frigate-wizard
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+      - "3000:3000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./config:/config
+      - ./media:/media
+    privileged: true
+    environment:
+      - NODE_ENV=production
+      - API_PORT=3000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks: {}
+
+保存为 docker-compose.yml，然后运行：
+bashdocker-compose up -d
+访问：http://localhost:8080
+说明：
+
+8080:80 - Web UI 端口
+3000:3000 - 后端 API 端口
+/var/run/docker.sock - 用于管理 Frigate 容器（必需）
+./config - 配置文件持久化
+./media - 录像存储
+privileged: true - 访问硬件设备所需
+
 
 ## 📖 Usage
 
