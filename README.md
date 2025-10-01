@@ -42,7 +42,10 @@ Visit: http://localhost:8080
 wget https://raw.githubusercontent.com/SunvidWong/frigate-setup-wizard/main/docker-compose.yml
 docker-compose up -d
 ```
+
 ### Docker Compose 2
+
+```bash
 services:
   frigate-wizard:
     image: ghcr.io/sunvidwong/frigate-setup-wizard:latest
@@ -58,15 +61,9 @@ services:
     privileged: true
     environment:
       - NODE_ENV=production
-      - API_PORT=3000
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
 networks: {}
+```
 
 保存为 docker-compose.yml，然后运行：
 bashdocker-compose up -d
