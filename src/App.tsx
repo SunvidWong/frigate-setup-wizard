@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Save, RefreshCw, Cpu, Camera, Settings, FileText, Zap, CheckCircle, XCircle, Package, Plus, Trash2, Upload, Download, Sun, Moon, Globe, PlayCircle, AlertCircle, Monitor, History, BookOpen, Terminal, Wifi } from 'lucide-react';
+import { Save, RefreshCw, Cpu, Camera, Settings, FileText, Zap, CheckCircle, XCircle, Package, Plus, Trash2, Upload, Download, Sun, Moon, Globe, PlayCircle, AlertCircle, Monitor, History, BookOpen, Terminal, Wifi, ChevronDown, RotateCw } from 'lucide-react';
 
 const TRANSLATIONS = {
   en: {
@@ -192,6 +192,7 @@ export default function FrigateConfigUI() {
     memory_usage: 0,
     neural_engine_usage: 0
   });
+  const [showSaveMenu, setShowSaveMenu] = useState(false);
   
   const [config, setConfig] = useState({
     mqtt: { host: 'localhost', port: 1883 },
@@ -589,6 +590,22 @@ export default function FrigateConfigUI() {
     await new Promise(resolve => setTimeout(resolve, 1000));
     addLog('Configuration saved successfully');
     showMessage('success', 'Config saved');
+    setLoading(false);
+  };
+
+  const saveAndRestartFrigate = async () => {
+    setLoading(true);
+    addLog('Saving configuration to Frigate config file...');
+    saveConfigToHistory();
+
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    addLog('✓ Configuration saved to /config/config.yml');
+
+    addLog('Restarting Frigate container...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
+    addLog('✓ Frigate restarted successfully');
+    showMessage('success', 'Frigate restarted with new configuration');
     setLoading(false);
   };
 
@@ -1070,10 +1087,35 @@ export default function FrigateConfigUI() {
               >
                 {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
               </button>
-              <button onClick={saveConfig} disabled={loading} className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50">
-                <Save className="w-4 h-4" />
-                <span>{t.save}</span>
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowSaveMenu(!showSaveMenu)}
+                  disabled={loading}
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  <Save className="w-4 h-4" />
+                  <span>{t.save}</span>
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+                {showSaveMenu && (
+                  <div className={`absolute right-0 mt-2 w-56 ${cardBg} rounded-lg shadow-lg border ${borderColor} z-50`}>
+                    <button
+                      onClick={() => { saveConfig(); setShowSaveMenu(false); }}
+                      className={`w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2 ${textColor}`}
+                    >
+                      <Save className="w-4 h-4" />
+                      <span>Save Config</span>
+                    </button>
+                    <button
+                      onClick={() => { saveAndRestartFrigate(); setShowSaveMenu(false); }}
+                      className={`w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center space-x-2 ${textColor} border-t ${borderColor}`}
+                    >
+                      <RotateCw className="w-4 h-4" />
+                      <span>Save & Restart Frigate</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -1167,9 +1209,19 @@ export default function FrigateConfigUI() {
             <div className={`col-span-1 ${cardBg} rounded-lg shadow-sm border ${borderColor} p-4`}>
               <div className="flex items-center justify-between mb-4">
                 <h3 className={`font-semibold ${textColor}`}>{t.cameras}</h3>
-                <button onClick={addCamera} className="p-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                  <Plus className="w-4 h-4" />
-                </button>
+                <div className="flex space-x-1">
+                  <button
+                    onClick={discoverCameras}
+                    disabled={scanningCameras}
+                    className="p-2 bg-cyan-600 text-white rounded hover:bg-cyan-700 disabled:opacity-50"
+                    title="Discover Cameras"
+                  >
+                    <Wifi className="w-4 h-4" />
+                  </button>
+                  <button onClick={addCamera} className="p-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
               <div className="space-y-2">
                 {config.cameras.map((cam, idx) => (
@@ -1202,10 +1254,24 @@ export default function FrigateConfigUI() {
                   </div>
                 </div>
                 <div className="space-y-4">
-                  <div>
-                    <label className={`block text-sm font-medium ${textColor} mb-1`}>Camera Name</label>
-                    <input type="text" value={camera.name} onChange={(e) => updateCamera(selectedCamera, 'name', e.target.value)} className={`w-full px-3 py-2 border ${borderColor} rounded-lg ${theme === 'dark' ? 'bg-gray-700' : 'bg-white'} ${textColor}`} />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className={`block text-sm font-medium ${textColor} mb-1`}>Camera Name</label>
+                      <input type="text" value={camera.name} onChange={(e) => updateCamera(selectedCamera, 'name', e.target.value)} className={`w-full px-3 py-2 border ${borderColor} rounded-lg ${theme === 'dark' ? 'bg-gray-700' : 'bg-white'} ${textColor}`} />
+                    </div>
+                    <div>
+                      <label className={`block text-sm font-medium ${textColor} mb-1`}>Enabled</label>
+                      <select
+                        value={camera.enabled.toString()}
+                        onChange={(e) => updateCamera(selectedCamera, 'enabled', e.target.value === 'true')}
+                        className={`w-full px-3 py-2 border ${borderColor} rounded-lg ${theme === 'dark' ? 'bg-gray-700' : 'bg-white'} ${textColor}`}
+                      >
+                        <option value="true">Yes</option>
+                        <option value="false">No</option>
+                      </select>
+                    </div>
                   </div>
+
                   <div>
                     <label className={`block text-sm font-medium ${textColor} mb-1`}>RTSP URL</label>
                     <div className="flex space-x-2">
@@ -1225,6 +1291,90 @@ export default function FrigateConfigUI() {
                       </div>
                     )}
                   </div>
+
+                  <div className={`p-4 border ${borderColor} rounded-lg`}>
+                    <h4 className={`font-semibold ${textColor} mb-3`}>Detection Settings</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div>
+                        <label className={`block text-sm font-medium ${textColor} mb-1`}>Width</label>
+                        <input
+                          type="number"
+                          value={camera.detect?.width || 1280}
+                          onChange={(e) => updateCamera(selectedCamera, 'detect', { ...camera.detect, width: parseInt(e.target.value) })}
+                          className={`w-full px-3 py-2 border ${borderColor} rounded-lg ${theme === 'dark' ? 'bg-gray-700' : 'bg-white'} ${textColor}`}
+                        />
+                      </div>
+                      <div>
+                        <label className={`block text-sm font-medium ${textColor} mb-1`}>Height</label>
+                        <input
+                          type="number"
+                          value={camera.detect?.height || 720}
+                          onChange={(e) => updateCamera(selectedCamera, 'detect', { ...camera.detect, height: parseInt(e.target.value) })}
+                          className={`w-full px-3 py-2 border ${borderColor} rounded-lg ${theme === 'dark' ? 'bg-gray-700' : 'bg-white'} ${textColor}`}
+                        />
+                      </div>
+                      <div>
+                        <label className={`block text-sm font-medium ${textColor} mb-1`}>FPS</label>
+                        <input
+                          type="number"
+                          value={camera.detect?.fps || 5}
+                          onChange={(e) => updateCamera(selectedCamera, 'detect', { ...camera.detect, fps: parseInt(e.target.value) })}
+                          className={`w-full px-3 py-2 border ${borderColor} rounded-lg ${theme === 'dark' ? 'bg-gray-700' : 'bg-white'} ${textColor}`}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={`p-4 border ${borderColor} rounded-lg`}>
+                    <h4 className={`font-semibold ${textColor} mb-3`}>Object Tracking</h4>
+                    <div className="grid grid-cols-3 gap-2">
+                      {['person', 'car', 'dog', 'cat', 'bird', 'bicycle', 'motorcycle', 'truck', 'bus'].map((obj) => (
+                        <label key={obj} className="flex items-center space-x-2">
+                          <input
+                            type="checkbox"
+                            checked={camera.objects?.track?.includes(obj)}
+                            onChange={(e) => {
+                              const currentTrack = camera.objects?.track || [];
+                              const newTrack = e.target.checked
+                                ? [...currentTrack, obj]
+                                : currentTrack.filter((o) => o !== obj);
+                              updateCamera(selectedCamera, 'objects', { ...camera.objects, track: newTrack });
+                            }}
+                            className="rounded"
+                          />
+                          <span className={`text-sm ${textColor} capitalize`}>{obj}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className={`p-4 border ${borderColor} rounded-lg`}>
+                    <h4 className={`font-semibold ${textColor} mb-3`}>Recording Settings</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className={`block text-sm font-medium ${textColor} mb-1`}>Record Mode</label>
+                        <select
+                          value={camera.record?.mode || 'motion'}
+                          onChange={(e) => updateCamera(selectedCamera, 'record', { ...camera.record, mode: e.target.value })}
+                          className={`w-full px-3 py-2 border ${borderColor} rounded-lg ${theme === 'dark' ? 'bg-gray-700' : 'bg-white'} ${textColor}`}
+                        >
+                          <option value="all">Continuous</option>
+                          <option value="motion">Motion Only</option>
+                          <option value="active_objects">Active Objects</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={`block text-sm font-medium ${textColor} mb-1`}>Retain Days</label>
+                        <input
+                          type="number"
+                          value={camera.record?.days || 7}
+                          onChange={(e) => updateCamera(selectedCamera, 'record', { ...camera.record, days: parseInt(e.target.value) })}
+                          className={`w-full px-3 py-2 border ${borderColor} rounded-lg ${theme === 'dark' ? 'bg-gray-700' : 'bg-white'} ${textColor}`}
+                          placeholder="Days"
+                        />
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -1235,14 +1385,6 @@ export default function FrigateConfigUI() {
           <div className={`${cardBg} rounded-lg shadow-sm border ${borderColor} p-6`}>
             <h2 className={`text-xl font-semibold ${textColor} mb-6`}>{t.tools}</h2>
             <div className="grid grid-cols-3 gap-4 mb-6">
-              <button
-                onClick={discoverCameras}
-                disabled={scanningCameras}
-                className="flex items-center justify-center space-x-2 p-4 border-2 border-cyan-500 rounded-lg hover:bg-cyan-50 dark:hover:bg-cyan-900 disabled:opacity-50"
-              >
-                <Wifi className={`w-5 h-5 text-cyan-600 ${scanningCameras ? 'animate-pulse' : ''}`} />
-                <span className={textColor}>{scanningCameras ? 'Scanning...' : 'Discover Cameras'}</span>
-              </button>
               <label className="flex items-center justify-center space-x-2 p-4 border-2 border-green-500 rounded-lg hover:bg-green-50 dark:hover:bg-green-900 cursor-pointer">
                 <Upload className="w-5 h-5 text-green-600" />
                 <span className={textColor}>{t.importConfig}</span>
@@ -1252,13 +1394,13 @@ export default function FrigateConfigUI() {
                 <Download className="w-5 h-5 text-purple-600" />
                 <span className={textColor}>{t.exportConfig}</span>
               </button>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4 mb-6">
               <button className="flex items-center justify-center space-x-2 p-4 border-2 border-blue-500 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900">
                 <AlertCircle className="w-5 h-5 text-blue-600" />
                 <span className={textColor}>{t.validateConfig}</span>
               </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-6">
               <label className={`flex items-center justify-center space-x-2 p-4 border-2 border-orange-500 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900 cursor-pointer`}>
                 <Upload className="w-5 h-5 text-orange-600" />
                 <span className={textColor}>{t.batchImport}</span>

@@ -1,6 +1,42 @@
 version: '3.9'
 
 services:
+  mqtt:
+    image: eclipse-mosquitto:latest
+    container_name: frigate-mqtt
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    command: mosquitto -c /mosquitto/config/mosquitto.conf
+
+  frigate:
+    image: ghcr.io/blakeblackshear/frigate:stable
+    container_name: frigate
+    restart: unless-stopped
+    shm_size: "256mb"
+    ports:
+      - "5000:5000"
+      - "8554:8554"  # RTSP feeds
+      - "8555:8555/tcp"  # WebRTC over tcp
+      - "8555:8555/udp"  # WebRTC over udp
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - ./config:/config
+      - ./media:/media/frigate
+      - type: tmpfs
+        target: /tmp/cache
+        tmpfs:
+          size: 1000000000
+    environment:
+      - FRIGATE_RTSP_PASSWORD=password
+    depends_on:
+      - mqtt
+    privileged: true
+
   frigate-wizard:
     build:
       context: .
@@ -18,6 +54,11 @@ services:
     environment:
       - NODE_ENV=production
       - API_PORT=3000
+      - FRIGATE_HOST=frigate
+      - FRIGATE_PORT=5000
+    depends_on:
+      - frigate
+      - mqtt
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost/"]
       interval: 30s

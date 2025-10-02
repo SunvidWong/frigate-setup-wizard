@@ -1,0 +1,9 @@
+mqtt:
+  host: mqtt
+  port: 1883
+
+detectors:
+  # Detectors will be configured through Web UI
+
+cameras:
+  # Cameras will be configured through Web UI

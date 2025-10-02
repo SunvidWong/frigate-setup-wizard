@@ -29,8 +29,13 @@ Thumbs.db
 # Config and media (user data)
 config/*
 !config/.gitkeep
+!config/config.yml
 media/*
 !media/.gitkeep
+
+# MQTT runtime data
+mosquitto/data/
+mosquitto/log/
 
 # Testing
 coverage/
