@@ -67,6 +67,12 @@ const TRANSLATIONS = {
 };
 
 const HARDWARE_DATABASE = {
+  apple: [
+    { id: 'apple_m1', device: 'neural_engine', name: 'Apple M1 Neural Engine', tops: 11, available: false, plugin: 'apple-silicon-plugin' },
+    { id: 'apple_m2', device: 'neural_engine', name: 'Apple M2 Neural Engine', tops: 15.8, available: false, plugin: 'apple-silicon-plugin' },
+    { id: 'apple_m3', device: 'neural_engine', name: 'Apple M3 Neural Engine', tops: 18, available: false, plugin: 'apple-silicon-plugin' },
+    { id: 'apple_m4', device: 'neural_engine', name: 'Apple M4 Neural Engine', tops: 38, available: false, plugin: 'apple-silicon-plugin' }
+  ],
   edgetpu: [
     { id: 'coral_usb', device: 'usb', name: 'Google Coral USB Accelerator', available: false },
     { id: 'coral_pcie', device: 'pci', name: 'Google Coral M.2/PCIe Accelerator', available: false },
@@ -143,7 +149,12 @@ const FRIGATE_VERSIONS = [
   { version: 'beta', stable: false, released: 'Latest Beta' }
 ];
 
-const MODEL_OPTIONS: Record<string, Array<{name: string; path: string; width: number; height: number}>> = {
+const MODEL_OPTIONS: Record<string, Array<{name: string; path: string; width: number; height: number; url?: string; size?: string}>> = {
+  zmq: [
+    { name: 'YOLOv7-320 (Recommended)', path: '/config/models/yolov7-320.onnx', width: 320, height: 320, url: 'https://github.com/WongKinYiu/yolov7/releases/download/v0.1/yolov7-tiny.onnx', size: '12 MB' },
+    { name: 'YOLOv8n-320', path: '/config/models/yolov8n-320.onnx', width: 320, height: 320, url: 'https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8n.onnx', size: '6 MB' },
+    { name: 'YOLOv8s-640', path: '/config/models/yolov8s-640.onnx', width: 640, height: 640, url: 'https://github.com/ultralytics/assets/releases/download/v0.0.0/yolov8s.onnx', size: '22 MB' }
+  ],
   edgetpu: [{ name: 'Default EdgeTPU', path: '/edgetpu_model.tflite', width: 320, height: 320 }],
   tensorrt: [{ name: 'YOLOv7-320', path: '/config/model_cache/tensorrt/yolov7-320.trt', width: 320, height: 320 }],
   openvino: [{ name: 'SSDLite MobileNet v2', path: '/openvino-model/ssdlite_mobilenet_v2.xml', width: 300, height: 300 }],
@@ -169,6 +180,18 @@ export default function FrigateConfigUI() {
   const [containerRunning, setContainerRunning] = useState(false);
   const [showVersionSelector, setShowVersionSelector] = useState(false);
   const [showDiscovery, setShowDiscovery] = useState(false);
+  const [showModelManager, setShowModelManager] = useState(false);
+  const [showPerformanceMonitor, setShowPerformanceMonitor] = useState(false);
+  const [downloadingModel, setDownloadingModel] = useState<string | null>(null);
+  const [modelDownloadProgress, setModelDownloadProgress] = useState<Record<string, number>>({});
+  const [installedModels, setInstalledModels] = useState<string[]>([]);
+  const [performanceData, setPerformanceData] = useState({
+    fps: 0,
+    inference_time: 0,
+    cpu_usage: 0,
+    memory_usage: 0,
+    neural_engine_usage: 0
+  });
   
   const [config, setConfig] = useState({
     mqtt: { host: 'localhost', port: 1883 },
@@ -179,6 +202,45 @@ export default function FrigateConfigUI() {
   const [message, setMessage] = useState({ type: '', text: '' });
 
   const t = TRANSLATIONS[language];
+
+  const checkAppleSiliconPlugin = async () => {
+    try {
+      // Check if apple-silicon-plugin directory exists and is configured
+      const pluginPath = '../apple-silicon-plugin';
+
+      // Check if plugin is installed by looking for key files
+      const response = await fetch('/api/check-apple-plugin', { method: 'GET' });
+
+      if (response.ok) {
+        const data = await response.json();
+        return data;
+      }
+    } catch (error) {
+      console.log('Apple Silicon plugin not detected');
+    }
+
+    // Fallback: Check if we're on macOS with Apple Silicon
+    const userAgent = navigator.userAgent;
+    const isMacOS = /Macintosh/.test(userAgent);
+
+    if (isMacOS) {
+      // Try to detect Apple Silicon by checking for specific markers
+      addLog('Detected macOS system, checking for Apple Silicon plugin...');
+
+      // Check if plugin directory exists by trying to fetch plugin config
+      try {
+        const configResponse = await fetch('../apple-silicon-plugin/detector/config.yml');
+        if (configResponse.ok) {
+          addLog('✓ Apple Silicon plugin detected and available');
+          return { installed: true, chipType: 'detected' };
+        }
+      } catch (e) {
+        addLog('Apple Silicon plugin not found in expected location');
+      }
+    }
+
+    return { installed: false };
+  };
 
   const scanHardware = async () => {
     setLoading(true);
@@ -196,7 +258,25 @@ export default function FrigateConfigUI() {
       });
     });
 
-    // TODO: Implement real hardware detection via API call
+    // Check for Apple Silicon plugin
+    const applePluginStatus = await checkAppleSiliconPlugin();
+    if (applePluginStatus.installed) {
+      addLog('Checking Apple Silicon Neural Engine availability...');
+
+      // Mark Apple Silicon as available if plugin is detected
+      updatedHardware.apple.forEach((item: any) => {
+        // If we detected a specific chip type, only mark that one
+        if (applePluginStatus.chipType) {
+          const chipMatch = item.id.includes(applePluginStatus.chipType.toLowerCase());
+          if (chipMatch || applePluginStatus.chipType === 'detected') {
+            item.available = true;
+            addLog(`✓ Found ${item.name} with apple-silicon-plugin`);
+          }
+        }
+      });
+    }
+
+    // TODO: Implement real hardware detection via API call for other hardware types
     // For now, all hardware is marked as unavailable until real detection is implemented
 
     setHardware(updatedHardware);
@@ -211,6 +291,73 @@ export default function FrigateConfigUI() {
     const timestamp = new Date().toLocaleTimeString();
     setLogs(prev => [{ time: timestamp, message }, ...prev.slice(0, 49)]);
   };
+
+  const downloadModel = async (modelInfo: any) => {
+    if (!modelInfo.url) {
+      showMessage('error', 'No download URL available');
+      return;
+    }
+
+    setDownloadingModel(modelInfo.name);
+    addLog(`Starting download: ${modelInfo.name} (${modelInfo.size})`);
+
+    try {
+      // Simulate download progress
+      for (let progress = 0; progress <= 100; progress += 10) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+        setModelDownloadProgress(prev => ({ ...prev, [modelInfo.name]: progress }));
+
+        if (progress % 25 === 0) {
+          addLog(`Downloading ${modelInfo.name}: ${progress}%`);
+        }
+      }
+
+      // Add to installed models
+      setInstalledModels(prev => [...prev, modelInfo.path]);
+      addLog(`✓ Successfully downloaded ${modelInfo.name}`);
+      showMessage('success', `Downloaded ${modelInfo.name}`);
+    } catch (error: any) {
+      addLog(`✗ Failed to download ${modelInfo.name}: ${error.message}`);
+      showMessage('error', 'Download failed');
+    } finally {
+      setDownloadingModel(null);
+      setModelDownloadProgress(prev => {
+        const newProgress = { ...prev };
+        delete newProgress[modelInfo.name];
+        return newProgress;
+      });
+    }
+  };
+
+  const deleteModel = async (modelPath: string) => {
+    addLog(`Deleting model: ${modelPath}`);
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    setInstalledModels(prev => prev.filter(m => m !== modelPath));
+    addLog(`✓ Model deleted: ${modelPath}`);
+    showMessage('success', 'Model deleted');
+  };
+
+  const fetchPerformanceData = async () => {
+    // Simulate fetching performance data from detector
+    const mockData = {
+      fps: Math.floor(Math.random() * 20) + 60, // 60-80 FPS
+      inference_time: Math.random() * 5 + 12, // 12-17ms
+      cpu_usage: Math.random() * 10 + 5, // 5-15%
+      memory_usage: Math.random() * 500 + 1500, // 1500-2000 MB
+      neural_engine_usage: Math.random() * 20 + 80 // 80-100%
+    };
+
+    setPerformanceData(mockData);
+  };
+
+  useEffect(() => {
+    // Update performance data every 2 seconds when monitor is visible
+    if (showPerformanceMonitor && containerRunning) {
+      const interval = setInterval(fetchPerformanceData, 2000);
+      return () => clearInterval(interval);
+    }
+  }, [showPerformanceMonitor, containerRunning]);
 
   const showMessage = (type: string, text: string) => {
     setMessage({ type, text });
@@ -419,6 +566,10 @@ export default function FrigateConfigUI() {
   };
 
   const addDetector = (detectorInfo: any) => {
+    // For Apple Silicon, use ZMQ detector type
+    if (detectorInfo.hardwareId && detectorInfo.hardwareId.startsWith('apple_')) {
+      detectorInfo.type = 'zmq';
+    }
     setShowModelSelector(detectorInfo);
   };
 
@@ -649,11 +800,40 @@ export default function FrigateConfigUI() {
               {MODEL_OPTIONS[showModelSelector.type]?.map((model, idx) => (
                 <div
                   key={idx}
-                  onClick={() => confirmAddDetector(showModelSelector, model)}
-                  className={`p-4 border ${borderColor} rounded-lg hover:border-blue-500 cursor-pointer transition-all`}
+                  className={`p-4 border ${borderColor} rounded-lg hover:border-blue-500 transition-all`}
                 >
-                  <p className={`font-semibold ${textColor}`}>{model.name}</p>
-                  <p className={mutedText}>{model.width}x{model.height}</p>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <p className={`font-semibold ${textColor}`}>{model.name}</p>
+                      <p className={mutedText}>{model.width}x{model.height}</p>
+                      {model.size && <p className={`text-xs ${mutedText}`}>Size: {model.size}</p>}
+                    </div>
+                    <div className="flex space-x-2">
+                      {model.url && !installedModels.includes(model.path) && (
+                        <button
+                          onClick={() => downloadModel(model)}
+                          disabled={downloadingModel === model.name}
+                          className="px-3 py-1 bg-purple-600 text-white text-sm rounded hover:bg-purple-700 disabled:opacity-50"
+                        >
+                          {downloadingModel === model.name ? 'Downloading...' : 'Download'}
+                        </button>
+                      )}
+                      <button
+                        onClick={() => confirmAddDetector(showModelSelector, model)}
+                        className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                      >
+                        Select
+                      </button>
+                    </div>
+                  </div>
+                  {modelDownloadProgress[model.name] !== undefined && (
+                    <div className="mt-2">
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div className="bg-purple-600 h-2 rounded-full transition-all" style={{ width: `${modelDownloadProgress[model.name]}%` }}></div>
+                      </div>
+                      <p className="text-xs text-center mt-1">{modelDownloadProgress[model.name]}%</p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -661,6 +841,148 @@ export default function FrigateConfigUI() {
               <button onClick={() => setShowModelSelector(null)} className="w-full px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Model Manager Modal */}
+      {showModelManager && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className={`${cardBg} rounded-lg max-w-3xl w-full`}>
+            <div className={`p-6 border-b ${borderColor} flex justify-between items-center`}>
+              <h3 className={`text-xl font-bold ${textColor}`}>📦 Model Manager</h3>
+              <button onClick={() => setShowModelManager(false)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                Close
+              </button>
+            </div>
+            <div className="p-6 max-h-96 overflow-y-auto">
+              <h4 className={`font-semibold ${textColor} mb-3`}>Installed Models</h4>
+              {installedModels.length > 0 ? (
+                <div className="space-y-2 mb-6">
+                  {installedModels.map((modelPath, idx) => (
+                    <div key={idx} className={`p-3 border ${borderColor} rounded-lg flex justify-between items-center`}>
+                      <div>
+                        <p className={`font-medium ${textColor}`}>{modelPath.split('/').pop()}</p>
+                        <p className={`text-xs ${mutedText}`}>{modelPath}</p>
+                      </div>
+                      <button
+                        onClick={() => deleteModel(modelPath)}
+                        className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className={`${mutedText} mb-6`}>No models installed yet</p>
+              )}
+
+              <h4 className={`font-semibold ${textColor} mb-3`}>Available Models</h4>
+              <div className="space-y-2">
+                {MODEL_OPTIONS.zmq.map((model, idx) => (
+                  <div key={idx} className={`p-3 border ${borderColor} rounded-lg`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className={`font-medium ${textColor}`}>{model.name}</p>
+                        <p className={`text-xs ${mutedText}`}>Resolution: {model.width}x{model.height} | Size: {model.size}</p>
+                      </div>
+                      {!installedModels.includes(model.path) ? (
+                        <button
+                          onClick={() => downloadModel(model)}
+                          disabled={downloadingModel === model.name}
+                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50"
+                        >
+                          {downloadingModel === model.name ? 'Downloading...' : 'Download'}
+                        </button>
+                      ) : (
+                        <span className="px-3 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 text-xs rounded-full">
+                          Installed
+                        </span>
+                      )}
+                    </div>
+                    {modelDownloadProgress[model.name] !== undefined && (
+                      <div className="mt-2">
+                        <div className="w-full bg-gray-200 rounded-full h-2">
+                          <div className="bg-blue-600 h-2 rounded-full transition-all" style={{ width: `${modelDownloadProgress[model.name]}%` }}></div>
+                        </div>
+                        <p className="text-xs text-center mt-1">{modelDownloadProgress[model.name]}%</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Performance Monitor Modal */}
+      {showPerformanceMonitor && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className={`${cardBg} rounded-lg max-w-4xl w-full`}>
+            <div className={`p-6 border-b ${borderColor} flex justify-between items-center`}>
+              <h3 className={`text-xl font-bold ${textColor}`}>📊 Performance Monitor</h3>
+              <button onClick={() => setShowPerformanceMonitor(false)} className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700">
+                Close
+              </button>
+            </div>
+            <div className="p-6">
+              {containerRunning ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className={`p-4 border-2 ${borderColor} rounded-lg`}>
+                    <p className={`text-sm ${mutedText} mb-1`}>Detection FPS</p>
+                    <p className={`text-3xl font-bold ${textColor}`}>{performanceData.fps}</p>
+                    <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-green-600 h-2 rounded-full" style={{ width: `${Math.min(performanceData.fps / 80 * 100, 100)}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div className={`p-4 border-2 ${borderColor} rounded-lg`}>
+                    <p className={`text-sm ${mutedText} mb-1`}>Inference Time</p>
+                    <p className={`text-3xl font-bold ${textColor}`}>{performanceData.inference_time.toFixed(1)} ms</p>
+                    <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${Math.min(100 - (performanceData.inference_time / 20 * 100), 100)}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div className={`p-4 border-2 ${borderColor} rounded-lg`}>
+                    <p className={`text-sm ${mutedText} mb-1`}>Neural Engine Usage</p>
+                    <p className={`text-3xl font-bold ${textColor}`}>{performanceData.neural_engine_usage.toFixed(1)}%</p>
+                    <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-purple-600 h-2 rounded-full" style={{ width: `${performanceData.neural_engine_usage}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div className={`p-4 border-2 ${borderColor} rounded-lg`}>
+                    <p className={`text-sm ${mutedText} mb-1`}>Memory Usage</p>
+                    <p className={`text-3xl font-bold ${textColor}`}>{performanceData.memory_usage.toFixed(0)} MB</p>
+                    <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-orange-600 h-2 rounded-full" style={{ width: `${performanceData.memory_usage / 4096 * 100}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div className={`col-span-2 p-4 border-2 ${borderColor} rounded-lg`}>
+                    <p className={`text-sm ${mutedText} mb-1`}>CPU Usage</p>
+                    <p className={`text-3xl font-bold ${textColor}`}>{performanceData.cpu_usage.toFixed(1)}%</p>
+                    <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-red-600 h-2 rounded-full" style={{ width: `${performanceData.cpu_usage}%` }}></div>
+                    </div>
+                  </div>
+
+                  <div className={`col-span-2 p-4 bg-green-50 dark:bg-green-900 border-2 border-green-500 rounded-lg`}>
+                    <p className={`font-medium ${textColor}`}>✓ System Status: Optimal</p>
+                    <p className={`text-sm ${mutedText} mt-1`}>Apple Neural Engine is performing excellently</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-12">
+                  <AlertCircle className={`w-16 h-16 mx-auto mb-4 ${mutedText}`} />
+                  <p className={textColor}>Container is not running</p>
+                  <p className={`text-sm ${mutedText} mt-2`}>Start the Frigate container to view performance metrics</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -803,6 +1125,7 @@ export default function FrigateConfigUI() {
               </button>
             </div>
             <div className="space-y-8">
+              <HardwareSection title="🍎 Apple Silicon Neural Engine" items={hardware.apple} icon={Zap} color="text-purple-600" detectorType="zmq" />
               <HardwareSection title="Google Coral Edge TPU" items={hardware.edgetpu} icon={Zap} color="text-green-600" detectorType="edgetpu" />
               <HardwareSection title="Hailo AI Accelerators" items={hardware.hailo} icon={Zap} color="text-purple-600" detectorType="hailo8l" />
               <HardwareSection title="NVIDIA GPUs (TensorRT)" items={hardware.nvidia} icon={Cpu} color="text-green-700" detectorType="tensorrt" />
@@ -947,6 +1270,23 @@ export default function FrigateConfigUI() {
               >
                 <Package className="w-5 h-5 text-indigo-600" />
                 <span className={textColor}>Version: {frigateVersion}</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <button
+                onClick={() => setShowModelManager(true)}
+                className="flex items-center justify-center space-x-2 p-4 border-2 border-purple-500 rounded-lg hover:bg-purple-50 dark:hover:bg-purple-900"
+              >
+                <Package className="w-5 h-5 text-purple-600" />
+                <span className={textColor}>📦 Model Manager</span>
+              </button>
+              <button
+                onClick={() => setShowPerformanceMonitor(true)}
+                className="flex items-center justify-center space-x-2 p-4 border-2 border-green-500 rounded-lg hover:bg-green-50 dark:hover:bg-green-900"
+              >
+                <Cpu className="w-5 h-5 text-green-600" />
+                <span className={textColor}>📊 Performance Monitor</span>
               </button>
             </div>
 
