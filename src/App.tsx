@@ -183,20 +183,25 @@ export default function FrigateConfigUI() {
   const scanHardware = async () => {
     setLoading(true);
     addLog('Starting hardware scan...');
-    
+
     await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    const updatedHardware = { ...HARDWARE_DATABASE };
-    updatedHardware.edgetpu[0].available = Math.random() > 0.5;
-    updatedHardware.hailo[1].available = Math.random() > 0.3;
-    updatedHardware.nvidia[6].available = Math.random() > 0.4;
-    updatedHardware.intel[2].available = Math.random() > 0.3;
-    updatedHardware.intel[7].available = true;
-    updatedHardware.amd[7].available = Math.random() > 0.6;
-    
+
+    // Clone hardware database and set all to unavailable by default
+    const updatedHardware = JSON.parse(JSON.stringify(HARDWARE_DATABASE));
+
+    // Set all hardware to unavailable
+    Object.values(updatedHardware).forEach((category: any) => {
+      category.forEach((item: any) => {
+        item.available = false;
+      });
+    });
+
+    // TODO: Implement real hardware detection via API call
+    // For now, all hardware is marked as unavailable until real detection is implemented
+
     setHardware(updatedHardware);
-    
-    const availableCount = Object.values(updatedHardware).flat().filter(h => h.available).length;
+
+    const availableCount = Object.values(updatedHardware).flat().filter((h: any) => h.available).length;
     addLog(`Hardware scan complete. Found ${availableCount} available devices.`);
     showMessage('success', `${t.rescan} - Found ${availableCount} devices`);
     setLoading(false);
@@ -500,7 +505,7 @@ export default function FrigateConfigUI() {
                 className={`ml-4 px-4 py-2 rounded-lg text-white text-sm transition-colors ${
                   item.available
                     ? 'bg-blue-600 hover:bg-blue-700'
-                    : 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-red-500 opacity-50 cursor-not-allowed'
                 }`}
               >
                 {t.add}
