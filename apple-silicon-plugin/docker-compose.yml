@@ -1,0 +1,47 @@
+version: '3.9'
+
+services:
+  # Frigate NVR主服务
+  frigate:
+    image: ghcr.io/blakeblackshear/frigate:stable
+    container_name: frigate
+    restart: unless-stopped
+    privileged: true
+    shm_size: "256mb"
+    ports:
+      - "5000:5000"    # Web UI
+      - "8554:8554"    # RTSP
+      - "8555:8555/tcp"  # WebRTC over TCP
+      - "8555:8555/udp"  # WebRTC over UDP
+    volumes:
+      - ./config:/config
+      - ./media:/media/frigate
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - TZ=Asia/Shanghai
+    networks:
+      - frigate-network
+    depends_on:
+      - mqtt
+
+  # MQTT服务（Frigate需要）
+  mqtt:
+    image: eclipse-mosquitto:latest
+    container_name: frigate-mqtt
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config
+      - ./mosquitto/data:/mosquitto/data
+      - ./mosquitto/log:/mosquitto/log
+    networks:
+      - frigate-network
+
+networks:
+  frigate-network:
+    driver: bridge
+
+# 注意：Apple Silicon检测器必须在macOS主机上运行
+# 使用以下命令启动检测器服务：
+# ./start-detector.sh

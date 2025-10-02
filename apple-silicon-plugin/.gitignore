@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+*.egg-info/
+
+# ONNX Models (太大，不提交)
+detector/models/*.onnx
+detector/models/*.tflite
+detector/models/*.pb
+
+# Frigate数据
+media/
+config/model_cache/
+mosquitto/data/
+mosquitto/log/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+*.bak
+*.swp
+
+# 配置文件（可能包含敏感信息）
+config/config.yml
+detector/config.yml
+
+# 但保留示例配置
+!config/config.yml.example
+!detector/config.yml.example
