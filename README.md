@@ -11,6 +11,7 @@
 ## ✨ Features
 
 - 🔍 **Auto Hardware Detection** - Automatically scan AI accelerators (Google Coral, NVIDIA GPU, Intel, AMD, Hailo)
+- 🍎 **Apple Silicon Plugin** - Native Neural Engine acceleration for Mac (M1/M2/M3/M4) - [View Plugin](apple-silicon-plugin/)
 - 🎨 **Modern UI** - Responsive React interface with dark/light themes
 - 🌐 **Multi-language** - English/Chinese support
 - 📹 **Batch Import** - CSV batch camera import
